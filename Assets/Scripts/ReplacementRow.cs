@@ -12,6 +12,9 @@ public class ReplacementRow : MonoBehaviour
     public TMP_InputField replacementInput2;
     public TMP_InputField replacementInput3;
 
+    [Header("Настройки")]
+    public Toggle ignoreCaseToggle;
+
     [Header("Кнопка удаления")]
     public ButtonManager deleteButton;
     
@@ -19,12 +22,12 @@ public class ReplacementRow : MonoBehaviour
     
     public void SetupDeleteButton()
     {
-        if(deleteButton != null)
+        if (deleteButton != null)
         {
             deleteButton.onClick.RemoveAllListeners();
             deleteButton.onClick.AddListener(() =>
             {
-                if(OnDelete != null)
+                if (OnDelete != null)
                     OnDelete(this);
             });
         }

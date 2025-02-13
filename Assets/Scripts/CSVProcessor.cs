@@ -23,24 +23,23 @@ public class ReplacementRulesData {
 public class CSVProcessor : MonoBehaviour
 {
     [Header("UI Элементы")]
-    public RectTransform pairsContainer;
-
-    public GameObject pairRowPrefab;
-    public PanelButton addRowButton;
-    public PanelButton selectFolderButton;
-    public PanelButton processButton;
-    public TMP_Text folderPathText;
+    public RectTransform pairsContainer;    // Панель, куда добавляются строки замены
+    public GameObject pairRowPrefab;          // Префаб строки замены
+    public PanelButton addRowButton;               // Кнопка "Добавить строку"
+    public PanelButton selectFolderButton;         // Кнопка "Выбрать папку"
+    public PanelButton processButton;              // Кнопка "Запустить обработку"
+    public TMP_Text folderPathText;           // Текст для отображения выбранного пути
 
     [Header("Логирование")]
-    public Transform logContentContainer;
-    public GameObject logEntryPrefab;
-    public ScrollRect logScrollRect;
+    public Transform logContentContainer;     // Контейнер, куда будут добавляться записи лога
+    public GameObject logEntryPrefab;         // Префаб текстового элемента для логирования
+    public ScrollRect logScrollRect;          // ScrollRect для логирования (для автоскроллинга)
 
     [Header("Выход из приложения")]
-    public ButtonManager exitButton;
+    public ButtonManager exitButton;                 // Кнопка для полного выхода из приложения
 
-    private string selectedFolder = "";
-    private List<ReplacementRow> replacementRows = new List<ReplacementRow>();
+    private string selectedFolder = "";       // Хранит путь к выбранной папке
+    private List<ReplacementRow> replacementRows = new List<ReplacementRow>(); // Список строк замены
 
     // Ключи для сохранения данных в PlayerPrefs
     private const string PREFS_KEY_REPLACEMENTS = "CSVProcessor_Replacements";
@@ -48,21 +47,27 @@ public class CSVProcessor : MonoBehaviour
 
     void Start()
     {
+        // Привязываем события к кнопкам
         addRowButton.onClick.AddListener(AddReplacementRow);
         selectFolderButton.onClick.AddListener(SelectFolder);
         processButton.onClick.AddListener(ProcessCSVFiles);
         exitButton.onClick.AddListener(ExitApplication);
-        
+
+        // Загружаем сохранённые данные (если они есть)
         LoadData();
 
         LogMessage("Приложение запущено. Данные загружены.");
     }
-    
+
+    // Сохранение данных при выходе
     void OnApplicationQuit()
     {
         SaveData();
     }
-    
+
+    // Метод для логирования сообщений:
+    // Каждое сообщение выводится в консоль и порождает новый префаб в контейнере логирования,
+    // после чего ScrollRect принудительно прокручивается в самый низ.
     void LogMessage(string message)
     {
         Debug.Log(message);
@@ -74,7 +79,7 @@ public class CSVProcessor : MonoBehaviour
             {
                 logTextComponent.text = message;
             }
-
+            // Обновляем канвас и прокручиваем ScrollRect вниз
             Canvas.ForceUpdateCanvases();
             if (logScrollRect != null)
             {
@@ -82,7 +87,8 @@ public class CSVProcessor : MonoBehaviour
             }
         }
     }
-    
+
+    // Добавление новой строки замены
     public void AddReplacementRow()
     {
         GameObject newRowObj = Instantiate(pairRowPrefab, pairsContainer);
@@ -95,7 +101,8 @@ public class CSVProcessor : MonoBehaviour
             LogMessage("Добавлена новая строка замены.");
         }
     }
-    
+
+    // Удаление строки замены (вызывается при нажатии на кнопку удаления в префабе)
     public void RemoveReplacementRow(ReplacementRow row)
     {
         if (replacementRows.Contains(row))
@@ -181,12 +188,11 @@ public class CSVProcessor : MonoBehaviour
             string originalText = columns[1];
             string newText = originalText;
 
-            // Для каждой строки замены ищем в тексте поисковое слово и, если оно найдено,
-            // выбираем случайный вариант замены из непустых
+            // Для каждой строки замены ищем в тексте поисковое слово
             foreach (var row in replacementRows)
             {
                 string searchTerm = row.searchInput.text;
-                if (!string.IsNullOrEmpty(searchTerm) && newText.Contains(searchTerm))
+                if (!string.IsNullOrEmpty(searchTerm))
                 {
                     List<string> candidates = new List<string>();
                     if (!string.IsNullOrEmpty(row.replacementInput1.text))
@@ -200,7 +206,24 @@ public class CSVProcessor : MonoBehaviour
                     {
                         int randomIndex = Random.Range(0, candidates.Count);
                         string chosenReplacement = candidates[randomIndex];
-                        newText = newText.Replace(searchTerm, chosenReplacement);
+
+                        if (row.ignoreCaseToggle != null && !row.ignoreCaseToggle.isOn)
+                        {
+                            string lower = searchTerm.ToLower();
+                            string upper = searchTerm.ToUpper();
+                            string capitalized = char.ToUpper(searchTerm[0]) + searchTerm.Substring(1).ToLower();
+
+                            newText = newText.Replace(lower, chosenReplacement);
+                            newText = newText.Replace(upper, chosenReplacement);
+                            newText = newText.Replace(capitalized, chosenReplacement);
+                        }
+                        else
+                        {
+                            if (newText.Contains(searchTerm))
+                            {
+                                newText = newText.Replace(searchTerm, chosenReplacement);
+                            }
+                        }
                     }
                 }
             }
@@ -209,13 +232,12 @@ public class CSVProcessor : MonoBehaviour
             newLines.Add(newLine);
         }
 
-        // Сохраняем обработанный файл в выходной папке с тем же именем
         string fileName = Path.GetFileName(inputFilePath);
         string outputFilePath = Path.Combine(outputFolder, fileName);
         File.WriteAllLines(outputFilePath, newLines.ToArray(), System.Text.Encoding.UTF8);
     }
 
-    // Сохранение данных (списка замен и выбранного пути) в PlayerPrefs
+
     void SaveData()
     {
         ReplacementRulesData data = new ReplacementRulesData();
@@ -234,8 +256,7 @@ public class CSVProcessor : MonoBehaviour
         PlayerPrefs.Save();
         LogMessage("Данные сохранены.");
     }
-
-    // Загрузка данных из PlayerPrefs и создание соответствующих префабов
+    
     void LoadData()
     {
         if (PlayerPrefs.HasKey(PREFS_KEY_REPLACEMENTS))
@@ -269,8 +290,7 @@ public class CSVProcessor : MonoBehaviour
             LogMessage("Загружен путь к папке: " + selectedFolder);
         }
     }
-
-    // Метод для полного завершения работы приложения
+    
     void ExitApplication()
     {
         LogMessage("Выход из приложения...");
